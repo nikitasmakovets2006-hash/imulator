@@ -1,13 +1,8 @@
-import sys
-import os
 import tkinter as tk
 from tkinter import scrolledtext
-import argparse
 
 class VFSEmulator:
-    def __init__(self, vfs_path=None, startup_script=None):
-        self.vfs_path = vfs_path or os.getcwd()
-        self.startup_script = startup_script
+    def __init__(self):
         self.commands = {
             'ls': self.cmd_ls,
             'cd': self.cmd_cd,
@@ -15,17 +10,21 @@ class VFSEmulator:
         }
 
     def cmd_ls(self, args):
+        """Команда ls - вывод списка файлов"""
         return f"ls called with args: {args}"
 
     def cmd_cd(self, args):
+        """Команда cd - смена директории"""
         if len(args) != 1:
-            return "cd: invalid arguments"
+            return "cd: invalid arguments - usage: cd <directory>"
         return f"cd called with args: {args}"
 
     def cmd_exit(self, args):
+        """Команда exit - выход из эмулятора"""
         return "exit"
 
     def parse_command(self, input_line):
+        """Парсинг введенной команды и аргументов"""
         parts = input_line.strip().split()
         if not parts:
             return ""
@@ -38,37 +37,16 @@ class VFSEmulator:
         else:
             return f"Error: unknown command '{cmd}'"
 
-    def execute_script(self, script_path):
-        if not os.path.exists(script_path):
-            return f"Error: script file '{script_path}' not found"
-
-        results = []
-        try:
-            with open(script_path, 'r', encoding='utf-8') as file:
-                for line_num, line in enumerate(file, 1):
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-
-                    results.append(f"$ {line}")
-                    output = self.parse_command(line)
-                    if output:
-                        results.append(output)
-                        if output == "exit":
-                            break
-        except Exception as e:
-            return f"Error executing script: {str(e)}"
-
-        return "\n".join(results)
-
 class VFSGUI:
-    def __init__(self, root, vfs_emulator):
+    def __init__(self, root):
         self.root = root
-        self.vfs = vfs_emulator
+        self.vfs = VFSEmulator()
 
+        # Настройка главного окна
         self.root.title("VFS Emulator")
         self.root.geometry("800x600")
 
+        # Создание текстовой области для вывода
         self.text_area = scrolledtext.ScrolledText(
             root,
             wrap=tk.WORD,
@@ -76,77 +54,76 @@ class VFSGUI:
             height=30,
             bg='black',
             fg='white',
-            insertbackground='white'
+            insertbackground='white',
+            font=('Consolas', 10)
         )
         self.text_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-        self.entry = tk.Entry(root, bg='black', fg='white', insertbackground='white')
+        # Создание поля ввода
+        self.entry = tk.Entry(
+            root,
+            bg='black',
+            fg='white',
+            insertbackground='white',
+            font=('Consolas', 10)
+        )
         self.entry.pack(padx=10, pady=5, fill=tk.X)
         self.entry.bind('<Return>', self.execute_command)
+        self.entry.focus()
 
+        # Блокировка редактирования текстовой области
         self.text_area.config(state=tk.DISABLED)
 
+        # Отображение приветственного сообщения
         self.display_welcome()
 
-        if self.vfs.startup_script:
-            self.execute_startup_script()
-
     def display_welcome(self):
+        """Отображение приветственного сообщения"""
         self.text_area.config(state=tk.NORMAL)
-        self.text_area.insert(tk.END, "Welcome to VFS Emulator\n")
-        self.text_area.insert(tk.END, f"VFS Path: {self.vfs.vfs_path}\n")
-        if self.vfs.startup_script:
-            self.text_area.insert(tk.END, f"Startup Script: {self.vfs.startup_script}\n")
-        self.text_area.insert(tk.END, "Type 'exit' to quit\n\n")
-        self.text_area.config(state=tk.DISABLED)
-        self.text_area.see(tk.END)
-
-    def execute_startup_script(self):
-        self.text_area.config(state=tk.NORMAL)
-        self.text_area.insert(tk.END, f"\nExecuting startup script: {self.vfs.startup_script}\n")
-        result = self.vfs.execute_script(self.vfs.startup_script)
-        self.text_area.insert(tk.END, f"\n{result}\n")
-        self.text_area.insert(tk.END, "\nStartup script execution completed.\n\n$ ")
+        self.text_area.insert(tk.END, "=" * 60 + "\n")
+        self.text_area.insert(tk.END, "Welcome to VFS Emulator - Virtual File System\n")
+        self.text_area.insert(tk.END, "=" * 60 + "\n")
+        self.text_area.insert(tk.END, "Available commands: ls, cd, exit\n")
+        self.text_area.insert(tk.END, "Type 'exit' to quit the emulator\n")
+        self.text_area.insert(tk.END, "-" * 60 + "\n\n")
+        self.text_area.insert(tk.END, "$ ")
         self.text_area.config(state=tk.DISABLED)
         self.text_area.see(tk.END)
 
     def execute_command(self, event):
+        """Выполнение команды из поля ввода"""
         command = self.entry.get().strip()
         self.entry.delete(0, tk.END)
 
+        # Пропуск пустых команд
         if not command:
             return
 
+        # Вывод команды в текстовую область
         self.text_area.config(state=tk.NORMAL)
-        self.text_area.insert(tk.END, f"$ {command}\n")
+        self.text_area.insert(tk.END, f"{command}\n")
 
+        # Парсинг и выполнение команды
         result = self.vfs.parse_command(command)
         if result:
             self.text_area.insert(tk.END, f"{result}\n")
 
+        # Обработка команды exit
         if result == "exit":
-            self.root.quit()
+            self.text_area.insert(tk.END, "Goodbye!\n")
+            self.text_area.config(state=tk.DISABLED)
+            self.root.after(1000, self.root.quit)  # Задержка перед выходом
             return
 
+        # Добавление приглашения для следующей команды
         self.text_area.insert(tk.END, "$ ")
         self.text_area.config(state=tk.DISABLED)
         self.text_area.see(tk.END)
 
 def main():
-    parser = argparse.ArgumentParser(description='VFS Emulator')
-    parser.add_argument('--vfs-path', help='Path to VFS physical location')
-    parser.add_argument('--startup-script', help='Path to startup script')
-
-    args = parser.parse_args()
-
-    print("VFS Emulator starting with parameters:")
-    print(f"  VFS Path: {args.vfs_path}")
-    print(f"  Startup Script: {args.startup_script}")
-
-    vfs = VFSEmulator(args.vfs_path, args.startup_script)
-
+    """Основная функция запуска эмулятора"""
     root = tk.Tk()
-    app = VFSGUI(root, vfs)
+    app = VFSGUI(root)
     root.mainloop()
 
 if __name__ == "__main__":
