@@ -1,0 +1,7 @@
+[package]
+name = "example-package"
+repository_url = "https://github.com/example/repo"
+local_repository_path = "./test-repo"
+test_mode = false
+ascii_tree = true
+filter_substring = ""
